@@ -1,42 +1,30 @@
-import mongoose, { type Document } from "mongoose"
+import { Schema, model, models } from "mongoose"
 
-export interface IUser extends Document {
-  name?: string
-  email: string
-  password?: string
-  role: "user" | "admin"
-  googleId?: string
-  cart: Array<{
-    bicycle: mongoose.Types.ObjectId
-    quantity: number
-  }>
-  wishlist: mongoose.Types.ObjectId[]
-  createdAt: Date
-  updatedAt: Date
-}
+const cartItemSchema = new Schema({
+  bicycle: {
+    type: Schema.Types.Mixed, // Changed from ObjectId to Mixed to handle both ObjectId and string
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1,
+    default: 1,
+  },
+})
 
-const UserSchema = new mongoose.Schema<IUser>(
+const userSchema = new Schema(
   {
     name: {
       type: String,
-      trim: true,
+      required: true,
     },
     email: {
       type: String,
-      required: [true, "Email is required"],
+      required: true,
       unique: true,
-      lowercase: true,
-      trim: true,
-      validate: {
-        validator: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
-        message: "Please enter a valid email address",
-      },
     },
-    password: {
-      type: String,
-      minlength: [6, "Password must be at least 6 characters"],
-      select: false, // Don't include password by default in queries
-    },
+    password: String,
     role: {
       type: String,
       enum: ["user", "admin"],
@@ -46,23 +34,10 @@ const UserSchema = new mongoose.Schema<IUser>(
       type: String,
       sparse: true,
     },
-    cart: [
-      {
-        bicycle: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Bicycle",
-          required: true,
-        },
-        quantity: {
-          type: Number,
-          default: 1,
-          min: [1, "Quantity cannot be less than 1"],
-        },
-      },
-    ],
+    cart: [cartItemSchema],
     wishlist: [
       {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "Bicycle",
       },
     ],
@@ -72,20 +47,10 @@ const UserSchema = new mongoose.Schema<IUser>(
   },
 )
 
-// Remove password when converting to JSON
-UserSchema.set("toJSON", {
-  transform: (doc, ret) => {
-    delete ret.password
-    return ret
-  },
-})
+// Remove duplicate indexes
+userSchema.index({ email: 1 }, { unique: true })
+userSchema.index({ googleId: 1 }, { sparse: true })
 
-// Remove duplicate indexes and create proper ones
-UserSchema.index({ email: 1 }, { unique: true })
-UserSchema.index({ googleId: 1 }, { sparse: true, unique: true })
-
-// Only create the model if it doesn't exist
-const User = mongoose.models.User || mongoose.model<IUser>("User", UserSchema)
-
+const User = models.User || model("User", userSchema)
 export default User
 

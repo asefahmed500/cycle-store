@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Eye, Heart, ShoppingCart } from "lucide-react"
+import { useState } from "react" // Add this import
 
 interface Bicycle {
   _id: string
@@ -27,6 +28,7 @@ export default function BicycleCard({ bicycle }: BicycleCardProps) {
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
+  const [isAddingToCart, setIsAddingToCart] = useState(false) // Add loading state
 
   const handleAddToCart = async () => {
     if (!session) {
@@ -40,9 +42,7 @@ export default function BicycleCard({ bicycle }: BicycleCardProps) {
     }
 
     try {
-      // Log the product ID for debugging
-      console.log("Adding to cart:", bicycle._id)
-
+      setIsAddingToCart(true) // Start loading
       await addToCart({
         productId: bicycle._id,
         quantity: 1,
@@ -50,15 +50,17 @@ export default function BicycleCard({ bicycle }: BicycleCardProps) {
 
       toast({
         title: "Success",
-        description: "Item added to cart successfully",
+        description: `${bicycle.name} added to cart`,
       })
     } catch (error) {
       console.error("Error adding to cart:", error)
       toast({
         title: "Error",
-        description: "Failed to add product to cart",
+        description: "Failed to add product to cart. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsAddingToCart(false) // End loading
     }
   }
 
@@ -83,17 +85,16 @@ export default function BicycleCard({ bicycle }: BicycleCardProps) {
       if (response.ok) {
         toast({
           title: "Success",
-          description: "Added to wishlist",
+          description: `${bicycle.name} added to wishlist`,
         })
       } else {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to add to wishlist")
+        throw new Error("Failed to add to wishlist")
       }
     } catch (error) {
       console.error("Error adding to wishlist:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add to wishlist",
+        description: "Failed to add to wishlist. Please try again.",
         variant: "destructive",
       })
     }
@@ -123,9 +124,9 @@ export default function BicycleCard({ bicycle }: BicycleCardProps) {
           View Details
         </Button>
         <div className="flex gap-2 w-full">
-          <Button onClick={handleAddToCart} className="flex-1">
+          <Button onClick={handleAddToCart} className="flex-1" disabled={isAddingToCart}>
             <ShoppingCart className="mr-2 h-4 w-4" />
-            Add to Cart
+            {isAddingToCart ? "Adding..." : "Add to Cart"}
           </Button>
           <Button variant="outline" onClick={handleAddToWishlist}>
             <Heart className="h-4 w-4" />

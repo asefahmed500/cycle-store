@@ -11,58 +11,7 @@ interface CartItemRequest {
   quantity: number
 }
 
-export async function GET(request: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    await dbConnect()
-    const user = await User.findById(session.user.id)
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // For development/demo purposes, handle both sample and database items
-    const transformedCart = await Promise.all(
-      user.cart.map(async (item: any) => {
-        // Check if it's a sample product
-        const isSampleProduct = item.bicycle.toString().match(/^65f1c5c33cd7f8765432100[1-6]$/)
-        let bicycleData
-
-        if (isSampleProduct) {
-          bicycleData = sampleBicycles.find((b) => b._id === item.bicycle.toString())
-        } else {
-          bicycleData = await Bicycle.findById(item.bicycle)
-        }
-
-        if (!bicycleData) {
-          return null
-        }
-
-        return {
-          productId: item.bicycle.toString(),
-          name: bicycleData.name,
-          price: bicycleData.price,
-          quantity: item.quantity,
-          image: bicycleData.image,
-        }
-      }),
-    )
-
-    // Filter out any null values (items that weren't found)
-    const validCart = transformedCart.filter((item) => item !== null)
-
-    return NextResponse.json({ cart: validCart })
-  } catch (error) {
-    console.error("Error fetching cart:", error)
-    return NextResponse.json({ error: "An error occurred while fetching the cart" }, { status: 500 })
-  }
-}
-
-// Update the sample bicycles array with more products
+// Sample bicycles data for development
 const sampleBicycles = [
   {
     _id: "65f1c5c33cd7f87654321001",
@@ -108,6 +57,96 @@ const sampleBicycles = [
   },
 ]
 
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    await dbConnect()
+    const user = await User.findById(session.user.id)
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Ensure cart exists and is an array
+    if (!user.cart || !Array.isArray(user.cart)) {
+      return NextResponse.json({ cart: [] })
+    }
+
+    // Transform cart items with proper null checks
+    const transformedCart = await Promise.all(
+      user.cart
+        .filter((item: { bicycle: any }) => item && item.bicycle)
+        .map(async (item: any) => {
+          try {
+            // Safely get the bicycle ID string
+            const bicycleId = item.bicycle.toString
+              ? item.bicycle.toString()
+              : typeof item.bicycle === "string"
+                ? item.bicycle
+                : null
+
+            if (!bicycleId) {
+              return null
+            }
+
+            // Check if it's a sample product
+            const isSampleProduct = bicycleId.match(/^65f1c5c33cd7f8765432100[1-6]$/)
+            let bicycleData
+
+            if (isSampleProduct) {
+              bicycleData = sampleBicycles.find((b) => b._id === bicycleId)
+            } else {
+              // Verify if it's a valid MongoDB ObjectId before querying
+              if (mongoose.Types.ObjectId.isValid(bicycleId)) {
+                bicycleData = await Bicycle.findById(bicycleId)
+              }
+            }
+
+            if (!bicycleData) {
+              return null
+            }
+
+            return {
+              productId: bicycleId,
+              name: bicycleData.name,
+              price: bicycleData.price,
+              quantity: item.quantity || 1,
+              image: bicycleData.image,
+            }
+          } catch (error) {
+            console.error("Error processing cart item:", error)
+            return null
+          }
+        }),
+    )
+
+    // Filter out null values and clean up the cart if needed
+    const validCart = transformedCart.filter((item): item is NonNullable<typeof item> => item !== null)
+
+    // If there were invalid items, update the user's cart to remove them
+    if (validCart.length !== user.cart.length) {
+      try {
+        user.cart = validCart.map((item) => ({
+          bicycle: item.productId,
+          quantity: item.quantity,
+        }))
+        await user.save()
+      } catch (error) {
+        console.error("Error cleaning up cart:", error)
+      }
+    }
+
+    return NextResponse.json({ cart: validCart })
+  } catch (error) {
+    console.error("Error fetching cart:", error)
+    return NextResponse.json({ error: "An error occurred while fetching the cart" }, { status: 500 })
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -115,7 +154,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { productId, quantity } = await request.json()
+    const { productId, quantity }: CartItemRequest = await request.json()
+
+    if (!productId) {
+      return NextResponse.json({ error: "Product ID is required" }, { status: 400 })
+    }
 
     // For development/demo purposes, allow sample product IDs
     const isSampleProduct = productId.match(/^65f1c5c33cd7f8765432100[1-6]$/)

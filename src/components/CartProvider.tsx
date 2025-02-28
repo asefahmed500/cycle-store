@@ -4,13 +4,11 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/use-toast"
 
-// Define the cart item interface for the API
 export interface CartItemAPI {
   productId: string
   quantity: number
 }
 
-// Define the cart item interface for the UI
 export interface CartItem {
   productId: string
   name: string
@@ -51,18 +49,16 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const fetchCart = async () => {
     try {
       const response = await fetch("/api/cart")
-      if (response.ok) {
-        const data = await response.json()
-        setCart(data.cart)
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to fetch cart")
+      if (!response.ok) {
+        throw new Error("Failed to fetch cart")
       }
+      const data = await response.json()
+      setCart(data.cart)
     } catch (error) {
       console.error("Error fetching cart:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch cart",
+        description: "Failed to fetch cart items",
         variant: "destructive",
       })
     }
@@ -70,7 +66,9 @@ export default function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = async (item: CartItemAPI) => {
     try {
-      console.log("Adding item to cart:", item) // Debug log
+      if (!item.productId) {
+        throw new Error("Invalid product ID")
+      }
 
       const response = await fetch("/api/cart", {
         method: "POST",
@@ -78,24 +76,15 @@ export default function CartProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(item),
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        setCart(data.cart)
-        toast({
-          title: "Success",
-          description: "Item added to cart",
-        })
-      } else {
-        throw new Error(data.error || "Failed to add item to cart")
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to add item to cart")
       }
+
+      const data = await response.json()
+      setCart(data.cart)
     } catch (error) {
       console.error("Error adding to cart:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add item to cart",
-        variant: "destructive",
-      })
       throw error // Re-throw to handle in component
     }
   }
@@ -106,22 +95,21 @@ export default function CartProvider({ children }: { children: ReactNode }) {
         method: "DELETE",
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        setCart(data.cart)
-        toast({
-          title: "Success",
-          description: "Item removed from cart",
-        })
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to remove item from cart")
+      if (!response.ok) {
+        throw new Error("Failed to remove item from cart")
       }
+
+      const data = await response.json()
+      setCart(data.cart)
+      toast({
+        title: "Success",
+        description: "Item removed from cart",
+      })
     } catch (error) {
       console.error("Error removing from cart:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to remove item from cart",
+        description: "Failed to remove item from cart",
         variant: "destructive",
       })
     }
@@ -135,22 +123,21 @@ export default function CartProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ quantity }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        setCart(data.cart)
-        toast({
-          title: "Success",
-          description: "Cart updated",
-        })
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to update cart")
+      if (!response.ok) {
+        throw new Error("Failed to update cart")
       }
+
+      const data = await response.json()
+      setCart(data.cart)
+      toast({
+        title: "Success",
+        description: "Cart updated",
+      })
     } catch (error) {
       console.error("Error updating cart:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update cart",
+        description: "Failed to update cart",
         variant: "destructive",
       })
     }
@@ -162,21 +149,20 @@ export default function CartProvider({ children }: { children: ReactNode }) {
         method: "DELETE",
       })
 
-      if (response.ok) {
-        setCart([])
-        toast({
-          title: "Success",
-          description: "Cart cleared",
-        })
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to clear cart")
+      if (!response.ok) {
+        throw new Error("Failed to clear cart")
       }
+
+      setCart([])
+      toast({
+        title: "Success",
+        description: "Cart cleared",
+      })
     } catch (error) {
       console.error("Error clearing cart:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to clear cart",
+        description: "Failed to clear cart",
         variant: "destructive",
       })
     }
