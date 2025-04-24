@@ -1,127 +1,42 @@
-"use client"
-
-import { useState, useEffect, useCallback } from "react"
-import { useSession } from "next-auth/react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DataTable } from "@/components/dashboard/DataTable"
-import { columns } from "./columns"
-import { useToast } from "@/components/ui/use-toast"
+import { Suspense } from "react"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/config/auth"
+import { redirect } from "next/navigation"
+import UserDashboard from "@/components/dashboard/UserDashboard"
+import RecentOrders from "@/components/dashboard/RecentOrders"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-interface Order {
-  _id: string
-  totalAmount: number
-  status: string
-  createdAt: string
-  items: Array<{ product: { name: string }; quantity: number; price: number }>
-}
+export default async function DashboardPage({ searchParams }: { searchParams: { tab?: string } }) {
+  const session = await getServerSession(authOptions)
 
-interface DashboardData {
-  user: {
-    name: string
-    email: string
-  }
-  recentOrders: Order[]
-  totalSpent: number
-  totalOrders: number
-  lastOrderDate: string | null
-}
-
-export default function UserDashboard() {
-  const { data: session, status } = useSession()
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const { toast } = useToast()
-  const [currentPage, setCurrentPage] = useState(1)
-
-  const fetchDashboardData = useCallback(
-    async (page = 1) => {
-      try {
-        const response = await fetch(`/api/dashboard/user?page=${page}`)
-        if (response.ok) {
-          const data = await response.json()
-          setDashboardData(data)
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to fetch dashboard data",
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Error fetching dashboard data",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [toast],
-  )
-
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchDashboardData(currentPage)
-    }
-  }, [status, currentPage, fetchDashboardData])
-
-  if (status === "loading" || isLoading) {
-    return <DashboardSkeleton />
+  if (!session) {
+    redirect("/login")
   }
 
-  if (!dashboardData) {
-    return <div>No data available</div>
-  }
+  // Set default tab or use the one from URL
+  const defaultTab = searchParams.tab || "overview"
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-3xl font-bold tracking-tight">User Dashboard</h2>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${dashboardData.totalSpent.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboardData.totalOrders}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Last Order Date</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {dashboardData.lastOrderDate ? new Date(dashboardData.lastOrderDate).toLocaleDateString() : "N/A"}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      <div>
-        <h3 className="text-xl font-semibold mb-4">Recent Orders</h3>
-        <DataTable columns={columns} data={dashboardData.recentOrders} />
-      </div>
-      {dashboardData && (
-        <div className="mt-4">
-          <Button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
-            Previous
-          </Button>
-          <span className="mx-4">Page {currentPage}</span>
-          <Button onClick={() => setCurrentPage((prev) => prev + 1)} disabled={dashboardData.recentOrders.length < 10}>
-            Next
-          </Button>
-        </div>
-      )}
+    <div className="container mx-auto p-6">
+      <Tabs defaultValue={defaultTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <Suspense fallback={<DashboardSkeleton />}>
+            <UserDashboard />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <Suspense fallback={<OrdersSkeleton />}>
+            <RecentOrders />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -136,6 +51,18 @@ function DashboardSkeleton() {
         <Skeleton className="h-32" />
       </div>
       <Skeleton className="h-64" />
+    </div>
+  )
+}
+
+function OrdersSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-8 w-24" />
+      </div>
+      <Skeleton className="h-[400px]" />
     </div>
   )
 }

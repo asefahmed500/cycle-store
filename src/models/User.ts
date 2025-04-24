@@ -2,7 +2,7 @@ import { Schema, model, models } from "mongoose"
 
 const cartItemSchema = new Schema({
   bicycle: {
-    type: Schema.Types.Mixed, // Changed from ObjectId to Mixed to handle both ObjectId and string
+    type: Schema.Types.Mixed,
     required: true,
   },
   quantity: {
@@ -22,7 +22,7 @@ const userSchema = new Schema(
     email: {
       type: String,
       required: true,
-      unique: true,
+      unique: true, // Use this instead of explicit index
     },
     password: String,
     role: {
@@ -33,6 +33,7 @@ const userSchema = new Schema(
     googleId: {
       type: String,
       sparse: true,
+      unique: true, // Use this instead of explicit index
     },
     cart: [cartItemSchema],
     wishlist: [
@@ -47,9 +48,9 @@ const userSchema = new Schema(
   },
 )
 
-// Remove duplicate indexes
-userSchema.index({ email: 1 }, { unique: true })
-userSchema.index({ googleId: 1 }, { sparse: true })
+// Remove the duplicate index declarations
+// userSchema.index({ email: 1 })
+// userSchema.index({ googleId: 1 })
 
 const User = models.User || model("User", userSchema)
 export default User

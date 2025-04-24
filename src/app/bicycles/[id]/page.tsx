@@ -1,20 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { useCart } from "@/components/CartProvider"
+import { Card } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
+import { useCart } from "@/components/CartProvider"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { ArrowLeft, Heart, Minus, Plus, ShoppingCart } from "lucide-react"
 import Image from "next/image"
-import { Heart, Minus, Plus, ShoppingCart } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 
 interface Bicycle {
   _id: string
@@ -22,87 +16,54 @@ interface Bicycle {
   brand: string
   price: number
   category: string
-  description: string
-  specifications: string[]
-  images: string[] // Array of image URLs
-  stock: number
-  features: string[]
+  description?: string
+  image: string
+  stock?: number
 }
 
-// Sample bicycle data with multiple images
-const sampleBicycle: Bicycle = {
-  _id: "1",
-  name: "Mountain Explorer Pro",
-  brand: "TrailBlazer",
-  price: 899.99,
-  category: "Mountain",
-  description:
-    "Professional grade mountain bike designed for serious adventurers. Features advanced suspension system and durable frame construction.",
-  specifications: [
-    "Frame: Aluminum Alloy",
-    "Gears: 21-Speed Shimano",
-    "Brakes: Hydraulic Disc",
-    'Tires: 27.5" All-Terrain',
-    "Weight: 13.5 kg",
-  ],
-  images: [
-    "https://images.unsplash.com/photo-1576435728678-68d0fbf94e91?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-    "https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
-  ],
-  stock: 5,
-  features: [
-    "Advanced Suspension System",
-    "Lightweight Frame",
-    "All-Terrain Capability",
-    "Professional Grade Components",
-  ],
-}
-
-export default function BicycleDetailsPage() {
-  const { id } = useParams()
+export default function BicycleDetailPage() {
   const [bicycle, setBicycle] = useState<Bicycle | null>(null)
-  const [loading, setLoading] = useState(true)
-  const { addToCart } = useCart()
-  const { toast } = useToast()
-  const { data: session } = useSession()
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
-  const [selectedImage, setSelectedImage] = useState(0)
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
+
+  const params = useParams()
+  const router = useRouter()
+  const { toast } = useToast()
+  const { addToCart } = useCart()
+  const { data: session } = useSession()
+
+  const { id } = params
 
   useEffect(() => {
-    const fetchBicycleData = async () => {
+    const fetchBicycle = async () => {
       try {
+        setIsLoading(true)
         const response = await fetch(`/api/bicycles/${id}`)
-        if (response.ok) {
-          const data = await response.json()
-          setBicycle(data)
-        } else {
-          // Fallback to sample data for demonstration
-          setBicycle(sampleBicycle)
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch bicycle")
         }
+
+        const data = await response.json()
+        setBicycle(data.bicycle)
       } catch (error) {
         console.error("Error fetching bicycle:", error)
-        // Fallback to sample data for demonstration
-        setBicycle(sampleBicycle)
+        toast({
+          title: "Error",
+          description: "Failed to load bicycle details",
+          variant: "destructive",
+        })
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
     if (id) {
-      fetchBicycleData()
+      fetchBicycle()
     }
-  }, [id])
-
-  const handleQuantityChange = (increment: boolean) => {
-    if (increment && bicycle && quantity < bicycle.stock) {
-      setQuantity((q) => q + 1)
-    } else if (!increment && quantity > 1) {
-      setQuantity((q) => q - 1)
-    }
-  }
+  }, [id, toast])
 
   const handleAddToCart = async () => {
     if (!session) {
@@ -115,29 +76,27 @@ export default function BicycleDetailsPage() {
       return
     }
 
-    if (!bicycle) return
-
     try {
-      const cartItem = {
-        productId: bicycle._id,
-        name: bicycle.name,
-        price: bicycle.price,
-        quantity: quantity,
-        image: bicycle.images[0],
-      }
+      setIsAddingToCart(true)
 
-      await addToCart(cartItem)
+      await addToCart({
+        productId: bicycle?._id as string,
+        quantity,
+      })
+
       toast({
         title: "Success",
-        description: "Added to cart successfully",
+        description: `${bicycle?.name} added to cart`,
       })
     } catch (error) {
       console.error("Error adding to cart:", error)
       toast({
         title: "Error",
-        description: "Failed to add product to cart",
+        description: "Failed to add product to cart. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsAddingToCart(false)
     }
   }
 
@@ -153,15 +112,17 @@ export default function BicycleDetailsPage() {
     }
 
     try {
+      setIsAddingToWishlist(true)
       const response = await fetch("/api/wishlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bicycleId: id }),
+        body: JSON.stringify({ bicycleId: bicycle?._id }),
       })
+
       if (response.ok) {
         toast({
           title: "Success",
-          description: "Added to wishlist",
+          description: `${bicycle?.name} added to wishlist`,
         })
       } else {
         throw new Error("Failed to add to wishlist")
@@ -170,178 +131,128 @@ export default function BicycleDetailsPage() {
       console.error("Error adding to wishlist:", error)
       toast({
         title: "Error",
-        description: "Failed to add to wishlist",
+        description: "Failed to add to wishlist. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsAddingToWishlist(false)
     }
   }
 
-  if (loading) {
-    return <BicycleDetailsSkeleton />
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">
+          <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="aspect-square bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="space-y-4">
+              <div className="h-10 w-3/4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-6 w-1/4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-6 w-1/3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-32 w-full bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-10 w-full bg-gray-200 dark:bg-gray-700 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!bicycle) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <p className="text-center text-xl">Bicycle not found.</p>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Bicycle Not Found</h1>
+          <p className="mb-6">The bicycle you're looking for doesn't exist or has been removed.</p>
+          <Button onClick={() => router.push("/bicycles")}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Bicycles
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Image Gallery */}
-        <div className="space-y-4">
-          <div className="relative aspect-square">
-            <Image
-              src={bicycle.images[selectedImage] || "/placeholder.svg"}
-              alt={`${bicycle.name} - View ${selectedImage + 1}`}
-              fill
-              className="rounded-lg object-cover"
-            />
-          </div>
-          <div className="relative">
-            <Carousel className="w-full">
-              <CarouselContent>
-                {bicycle.images.map((image, index) => (
-                  <CarouselItem key={index} className="basis-1/4 cursor-pointer">
-                    <div className="p-1">
-                      <Card>
-                        <CardContent className="p-0">
-                          <Image
-                            src={image || "/placeholder.svg"}
-                            alt={`${bicycle.name} thumbnail ${index + 1}`}
-                            width={100}
-                            height={100}
-                            className={`rounded-lg object-cover aspect-square ${
-                              selectedImage === index ? "ring-2 ring-primary" : ""
-                            }`}
-                            onClick={() => setSelectedImage(index)}
-                          />
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
-          </div>
+      <Button variant="outline" className="mb-6" onClick={() => router.back()}>
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back
+      </Button>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Product Image */}
+        <div className="relative aspect-square">
+          <Image
+            src={bicycle.image || "/placeholder.svg"}
+            alt={bicycle.name}
+            fill
+            className="object-cover rounded-lg"
+          />
         </div>
 
         {/* Product Details */}
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{bicycle.name}</h1>
-            <div className="flex items-center gap-2 mb-4">
-              <Badge>{bicycle.category}</Badge>
-              <Badge variant="outline">{bicycle.brand}</Badge>
-            </div>
-            <p className="text-3xl font-bold text-primary">${bicycle.price.toFixed(2)}</p>
+            <h1 className="text-3xl font-bold">{bicycle.name}</h1>
+            <p className="text-xl font-semibold text-primary mt-2">${bicycle.price.toFixed(2)}</p>
           </div>
 
-          <Separator />
+          <div className="flex flex-col gap-1">
+            <p>
+              <span className="font-medium">Brand:</span> {bicycle.brand}
+            </p>
+            <p>
+              <span className="font-medium">Category:</span> {bicycle.category}
+            </p>
+            {bicycle.stock !== undefined && (
+              <p>
+                <span className="font-medium">Availability:</span>{" "}
+                {bicycle.stock > 0 ? `In Stock (${bicycle.stock})` : "Out of Stock"}
+              </p>
+            )}
+          </div>
 
-          <Tabs defaultValue="description" className="w-full">
-            <TabsList>
-              <TabsTrigger value="description">Description</TabsTrigger>
-              <TabsTrigger value="specifications">Specifications</TabsTrigger>
-              <TabsTrigger value="features">Features</TabsTrigger>
-            </TabsList>
-            <TabsContent value="description" className="mt-4">
+          {bicycle.description && (
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Description</h2>
               <p className="text-muted-foreground">{bicycle.description}</p>
-            </TabsContent>
-            <TabsContent value="specifications" className="mt-4">
-              <ul className="list-disc list-inside space-y-2">
-                {bicycle.specifications.map((spec, index) => (
-                  <li key={index} className="text-muted-foreground">
-                    {spec}
-                  </li>
-                ))}
-              </ul>
-            </TabsContent>
-            <TabsContent value="features" className="mt-4">
-              <ul className="list-disc list-inside space-y-2">
-                {bicycle.features.map((feature, index) => (
-                  <li key={index} className="text-muted-foreground">
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
 
-          <Separator />
-
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-muted-foreground">Quantity:</p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleQuantityChange(false)}
-                  disabled={quantity <= 1}
-                >
+          <Card className="p-4">
+            <div className="flex items-center gap-4 mb-4">
+              <span className="font-medium">Quantity:</span>
+              <div className="flex items-center">
+                <Button variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))}>
                   <Minus className="h-4 w-4" />
                 </Button>
                 <span className="w-12 text-center">{quantity}</span>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => handleQuantityChange(true)}
-                  disabled={bicycle.stock <= quantity}
+                  onClick={() => setQuantity(quantity + 1)}
+                  disabled={bicycle.stock !== undefined && quantity >= bicycle.stock}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">{bicycle.stock} units available</p>
             </div>
 
-            <div className="flex gap-4">
-              <Button className="flex-1" onClick={handleAddToCart} disabled={bicycle.stock === 0}>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                className="flex-1"
+                onClick={handleAddToCart}
+                disabled={isAddingToCart || (bicycle.stock !== undefined && bicycle.stock === 0)}
+              >
                 <ShoppingCart className="mr-2 h-4 w-4" />
-                Add to Cart
+                {isAddingToCart ? "Adding..." : "Add to Cart"}
               </Button>
-              <Button variant="outline" onClick={handleAddToWishlist}>
-                <Heart className="h-4 w-4" />
+              <Button variant="outline" onClick={handleAddToWishlist} disabled={isAddingToWishlist}>
+                <Heart className="mr-2 h-4 w-4" />
+                {isAddingToWishlist ? "Adding..." : "Add to Wishlist"}
               </Button>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function BicycleDetailsSkeleton() {
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="grid lg:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <Skeleton className="aspect-square w-full rounded-lg" />
-          <div className="grid grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="aspect-square rounded-lg" />
-            ))}
-          </div>
-        </div>
-        <div className="space-y-6">
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-6 w-1/4" />
-            <Skeleton className="h-8 w-1/3" />
-          </div>
-          <Skeleton className="h-[200px] w-full" />
-          <div className="space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <div className="flex gap-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-10" />
-            </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>

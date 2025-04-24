@@ -5,23 +5,23 @@ import mongoose from "mongoose"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    await dbConnect()
+    const { id } = params
 
-    // Validate ID format
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: "Invalid bicycle ID format" }, { status: 400 })
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid bicycle ID" }, { status: 400 })
     }
 
-    const bicycle = await Bicycle.findById(params.id)
+    await dbConnect()
+    const bicycle = await Bicycle.findById(id)
 
     if (!bicycle) {
       return NextResponse.json({ error: "Bicycle not found" }, { status: 404 })
     }
 
-    return NextResponse.json(bicycle)
+    return NextResponse.json({ bicycle })
   } catch (error) {
     console.error("Error fetching bicycle:", error)
-    return NextResponse.json({ error: "An error occurred while fetching the bicycle" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch bicycle" }, { status: 500 })
   }
 }
 

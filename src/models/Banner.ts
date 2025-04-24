@@ -1,25 +1,62 @@
-import mongoose from "mongoose"
+import { Schema, model, models } from "mongoose"
 
-const BannerSchema = new mongoose.Schema(
+const bannerSchema = new Schema(
   {
     title: {
       type: String,
-      required: [true, "Please provide a title for the banner"],
+      required: true,
+    },
+    subtitle: {
+      type: String,
     },
     imageUrl: {
       type: String,
-      required: [true, "Please provide an image URL for the banner"],
+      required: true,
     },
-    link: String,
-    startDate: Date,
-    endDate: Date,
+    linkUrl: {
+      type: String,
+    },
+    position: {
+      type: String,
+      enum: ["home_hero", "home_middle", "home_bottom", "category_top", "sidebar"],
+      default: "home_hero",
+    },
     isActive: {
       type: Boolean,
       default: true,
     },
+    startDate: {
+      type: Date,
+      default: Date.now,
+    },
+    endDate: {
+      type: Date,
+    },
+    backgroundColor: {
+      type: String,
+      default: "#ffffff",
+    },
+    textColor: {
+      type: String,
+      default: "#000000",
+    },
+    buttonText: {
+      type: String,
+    },
+    buttonColor: {
+      type: String,
+      default: "#0f172a",
+    },
+    priority: {
+      type: Number,
+      default: 0,
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 )
 
-export default mongoose.models.Banner || mongoose.model("Banner", BannerSchema)
+const Banner = models.Banner || model("Banner", bannerSchema)
+export default Banner
 

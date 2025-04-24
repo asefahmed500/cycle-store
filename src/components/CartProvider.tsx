@@ -64,11 +64,14 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Update the addToCart function with better error handling and logging
   const addToCart = async (item: CartItemAPI) => {
     try {
       if (!item.productId) {
         throw new Error("Invalid product ID")
       }
+
+      console.log("Sending to API:", item)
 
       const response = await fetch("/api/cart", {
         method: "POST",
@@ -77,11 +80,13 @@ export default function CartProvider({ children }: { children: ReactNode }) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to add item to cart")
+        const errorData = await response.json()
+        console.error("Error response from API:", errorData)
+        throw new Error(errorData.error || "Failed to add item to cart")
       }
 
       const data = await response.json()
+      console.log("Success response from API:", data)
       setCart(data.cart)
     } catch (error) {
       console.error("Error adding to cart:", error)

@@ -1,38 +1,33 @@
-import mongoose from "mongoose"
+import { Schema, model, models } from "mongoose"
 
-const BicycleSchema = new mongoose.Schema(
+const bicycleSchema = new Schema(
   {
     name: {
       type: String,
-      required: [true, "Please provide a name for the bicycle"],
+      required: true,
     },
     brand: {
       type: String,
-      required: [true, "Please provide a brand"],
-    },
-    price: {
-      type: Number,
-      required: [true, "Please provide a price"],
+      required: true,
     },
     category: {
       type: String,
-      required: [true, "Please provide a category"],
+      required: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
     },
     description: {
       type: String,
-      required: [true, "Please provide a description"],
     },
-    specifications: {
-      type: [String],
-      default: [],
-    },
-    images: {
-      type: [String],
-      default: [],
+    image: {
+      type: String,
+      required: true,
     },
     stock: {
       type: Number,
-      required: [true, "Please provide stock quantity"],
       default: 0,
     },
     featured: {
@@ -42,12 +37,9 @@ const BicycleSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
   },
 )
 
-const Bicycle = mongoose.models.Bicycle || mongoose.model("Bicycle", BicycleSchema)
-
+const Bicycle = models.Bicycle || model("Bicycle", bicycleSchema)
 export default Bicycle
 

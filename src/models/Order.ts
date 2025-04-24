@@ -1,9 +1,35 @@
-import mongoose from "mongoose"
+import { Schema, model, models, type Document, type Model } from "mongoose"
 
-const OrderItemSchema = new mongoose.Schema({
-  product: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Bicycle",
+// Define interfaces for TypeScript
+interface OrderItem {
+  name: string
+  quantity: number
+  price: number
+  image?: string
+}
+
+interface OrderDocument extends Document {
+  userId: Schema.Types.ObjectId
+  items: OrderItem[]
+  total: number
+  status: string
+  stripeSessionId: string
+  createdAt: Date
+  updatedAt: Date
+  shippingAddress?: {
+    name?: string
+    address?: string
+    city?: string
+    state?: string
+    postalCode?: string
+    country?: string
+  }
+}
+
+// Define the schema
+const orderItemSchema = new Schema<OrderItem>({
+  name: {
+    type: String,
     required: true,
   },
   quantity: {
@@ -15,51 +41,47 @@ const OrderItemSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  name: {
-    type: String,
-    required: true,
-  },
+  image: String,
 })
 
-const OrderSchema = new mongoose.Schema(
+const orderSchema = new Schema<OrderDocument>(
   {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
+    userId: {
+      type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
-    items: [OrderItemSchema],
-    totalAmount: {
+    items: [orderItemSchema],
+    total: {
       type: Number,
       required: true,
     },
     status: {
       type: String,
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      enum: ["pending", "processing", "completed", "cancelled"],
       default: "pending",
-    },
-    shippingAddress: {
-      type: String,
-      required: true,
     },
     stripeSessionId: {
       type: String,
       required: true,
+      unique: true,
     },
-    paymentInfo: {
-      stripePaymentId: String,
-      status: {
-        type: String,
-        enum: ["pending", "paid", "failed"],
-        default: "pending",
-      },
-      paidAt: Date,
+    shippingAddress: {
+      name: String,
+      address: String,
+      city: String,
+      state: String,
+      postalCode: String,
+      country: String,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 )
 
-const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema)
-
+// Create and export the model with proper typing
+const Order: Model<OrderDocument> = models.Order || model<OrderDocument>("Order", orderSchema)
 export default Order
 

@@ -1,114 +1,88 @@
 "use client"
 
 import type { ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal, Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Eye } from "lucide-react"
+import { format } from "date-fns"
 
-export type Order = {
+export interface AdminOrder {
   _id: string
-  user: {
-    name: string
-    email: string
-  }
-  totalAmount: number
-  status: string
   createdAt: string
-  items: Array<{
-    product: {
-      name: string
-    }
-    quantity: number
-    price: number
-  }>
+  customerName: string
+  itemCount: number
+  total: number
+  status: string
 }
 
-export const columns = ({
-  onViewDetails,
-  onUpdateStatus,
-}: {
-  onViewDetails: (order: Order) => void
-  onUpdateStatus: (orderId: string, status: string) => void
-}): ColumnDef<Order>[] => [
+export const columns: ColumnDef<AdminOrder>[] = [
   {
     accessorKey: "_id",
     header: "Order ID",
-  },
-  {
-    accessorKey: "user.name",
-    header: "Customer",
-  },
-  {
-    accessorKey: "totalAmount",
-    header: "Total Amount",
     cell: ({ row }) => {
-      const amount = Number.parseFloat(row.getValue("totalAmount"))
-      const formatted = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(amount)
-      return <div>{formatted}</div>
-    },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.getValue("status") as string
-      return (
-        <Badge
-          variant={
-            status === "delivered"
-              ? "success"
-              : status === "shipped"
-                ? "info"
-                : status === "processing"
-                  ? "warning"
-                  : status === "cancelled"
-                    ? "destructive"
-                    : "default"
-          }
-        >
-          {status}
-        </Badge>
-      )
+      return <div className="font-medium">#{row.original._id.slice(-8)}</div>
     },
   },
   {
     accessorKey: "createdAt",
     header: "Date",
     cell: ({ row }) => {
-      return <div>{new Date(row.getValue("createdAt")).toLocaleDateString()}</div>
+      return <div>{format(new Date(row.original.createdAt), "PPP")}</div>
+    },
+  },
+  {
+    accessorKey: "customerName",
+    header: "Customer",
+    cell: ({ row }) => {
+      return <div>{row.original.customerName || "N/A"}</div>
+    },
+  },
+  {
+    accessorKey: "itemCount",
+    header: "Items",
+    cell: ({ row }) => {
+      return <div>{row.original.itemCount} items</div>
+    },
+  },
+  {
+    accessorKey: "total",
+    header: "Total",
+    cell: ({ row }) => {
+      return <div>${row.original.total.toFixed(2)}</div>
+    },
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = row.original.status
+      const getStatusColor = (status: string) => {
+        switch (status.toLowerCase()) {
+          case "completed":
+            return "bg-green-500"
+          case "processing":
+            return "bg-blue-500"
+          case "cancelled":
+            return "bg-red-500"
+          default:
+            return "bg-yellow-500"
+        }
+      }
+
+      return <Badge className={getStatusColor(status)}>{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>
     },
   },
   {
     id: "actions",
     cell: ({ row }) => {
-      const order = row.original
-
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onViewDetails(order)}>
-              <Eye className="h-4 w-4 mr-2" />
-              View Details
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => (window.location.href = `/dashboard/admin/orders/${row.original._id}`)}
+        >
+          <Eye className="h-4 w-4 mr-1" /> View
+        </Button>
       )
     },
   },

@@ -1,53 +1,45 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
 import dbConnect from "@/config/db"
 import Banner from "@/models/Banner"
-import { authOptions } from "@/config/auth"
 
-interface BannerData {
-  _id: string
-  title: string
-  imageUrl: string
-  link: string
-  isActive: boolean
-  startDate?: Date
-  endDate?: Date
-}
-
-interface BannerRequestBody {
-  title: string
-  imageUrl: string
-  link: string
-  isActive?: boolean
-  startDate?: Date
-  endDate?: Date
-}
-
-export async function GET(request: Request): Promise<NextResponse<BannerData[] | { error: string }>> {
+// GET active banners for the frontend
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const position = searchParams.get("position")
+    const limit = Number.parseInt(searchParams.get("limit") || "5")
+
     await dbConnect()
-    const banners = await Banner.find({})
-    return NextResponse.json(banners)
-  } catch (error) {
-    console.error("Error fetching banners:", error)
-    return NextResponse.json({ error: "An error occurred while fetching banners" }, { status: 500 })
-  }
-}
 
-export async function POST(request: Request): Promise<NextResponse<BannerData | { error: string }>> {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Simplified query to just check for active banners and position
+    const query: any = {
+      isActive: true,
     }
 
-    await dbConnect()
-    const bannerData: BannerRequestBody = await request.json()
-    const banner = await Banner.create(bannerData)
-    return NextResponse.json(banner, { status: 201 })
+    // Filter by position if provided
+    if (position) {
+      query.position = position
+    }
+
+    // Get banners sorted by priority (higher first) and then by creation date
+    const banners = await Banner.find(query).sort({ priority: -1, createdAt: -1 }).limit(limit)
+
+    // Log the results for debugging
+    console.log(`Found ${banners.length} banners for position: ${position || "all"}`)
+
+    if (banners.length > 0) {
+      console.log("First banner details:", {
+        id: banners[0]._id,
+        title: banners[0].title,
+        position: banners[0].position,
+        isActive: banners[0].isActive,
+      })
+    }
+
+    return NextResponse.json({ banners })
   } catch (error) {
-    console.error("Error creating banner:", error)
-    return NextResponse.json({ error: "An error occurred while creating the banner" }, { status: 500 })
+    console.error("Error fetching banners:", error)
+    return NextResponse.json({ error: "Failed to fetch banners" }, { status: 500 })
   }
 }
 

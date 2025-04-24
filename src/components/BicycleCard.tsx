@@ -30,6 +30,7 @@ export default function BicycleCard({ bicycle }: BicycleCardProps) {
   const router = useRouter()
   const [isAddingToCart, setIsAddingToCart] = useState(false) // Add loading state
 
+  // Update the handleAddToCart function to include better error handling
   const handleAddToCart = async () => {
     if (!session) {
       toast({
@@ -43,6 +44,12 @@ export default function BicycleCard({ bicycle }: BicycleCardProps) {
 
     try {
       setIsAddingToCart(true) // Start loading
+
+      console.log("Adding to cart:", {
+        productId: bicycle._id,
+        quantity: 1,
+      })
+
       await addToCart({
         productId: bicycle._id,
         quantity: 1,
